@@ -35,7 +35,7 @@ func main() {
 	// Execute command based on parsed input
 	switch command {
 	case "add":
-		if len(parsedArgs) < 3 {
+		if len(parsedArgs) < 2 {
 			fmt.Println("Usage: simplebson add <schema> <record_data>")
 			os.Exit(1)
 		}
