@@ -1,0 +1,8 @@
+{
+  "User": {
+    "Alice": "{\"name\":\"Alice\", \"age\":30, \"email\":\"alice@example.com\"}"
+  },
+  "__schemas__": {
+    "definition": "{\"User\":\"name:string age:int email:string\"}"
+  }
+}

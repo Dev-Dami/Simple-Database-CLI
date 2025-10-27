@@ -64,20 +64,23 @@ func (s *Store) LoadRecords() (map[string]map[string]interface{}, error) {
 
 // SaveSchemas saves schema definitions to the storage file
 func (s *Store) SaveSchemas(schemas map[string]string) error {
-	// For simplicity, we'll save schemas in the same file as records
-	// In a full implementation, schemas might be stored separately
+	// For now, we'll improve the schema storage approach by using a reserved key
 	records, err := s.LoadRecords()
 	if err != nil {
 		return err
 	}
 
-	// Store schemas in a special "schemas" entry
+	// Store schemas in a special "__schemas__" entry to avoid conflicts with actual records
 	schemaJson, err := json.Marshal(schemas)
 	if err != nil {
 		return fmt.Errorf("failed to marshal schemas: %v", err)
 	}
 
-	records["schemas"] = map[string]interface{}{"definition": schemaJson}
+	// Ensure records map exists
+	if records == nil {
+		records = make(map[string]map[string]interface{})
+	}
+	records["__schemas__"] = map[string]interface{}{"definition": string(schemaJson)}
 	
 	return s.SaveRecords(records)
 }
@@ -91,27 +94,22 @@ func (s *Store) LoadSchemas() (map[string]string, error) {
 
 	schemas := make(map[string]string)
 	
-	schemaData, exists := records["schemas"]
+	schemaData, exists := records["__schemas__"]
 	if !exists {
 		return schemas, nil
 	}
 
-	schemaJson, ok := schemaData["definition"]
+	schemaEntry, ok := schemaData["definition"]
 	if !ok {
 		return schemas, nil
 	}
 	
-	schemaBytes, ok := schemaJson.(string)
+	schemaStr, ok := schemaEntry.(string)
 	if !ok {
-		// If it's already a byte array, handle that case
-		jsonBytes, ok := schemaJson.([]byte)
-		if !ok {
-			return schemas, nil
-		}
-		schemaBytes = string(jsonBytes)
+		return schemas, nil
 	}
 
-	err = json.Unmarshal([]byte(schemaBytes), &schemas)
+	err = json.Unmarshal([]byte(schemaStr), &schemas)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal schemas: %v", err)
 	}
