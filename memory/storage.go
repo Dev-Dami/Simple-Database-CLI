@@ -439,6 +439,20 @@ func (s *Storage) ListRecords(schemaName string) ([]interface{}, error) {
 	return records, nil
 }
 
+// WipeDatabase clears all records and schemas from the database
+func (s *Storage) WipeDatabase() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// Clear all data structures
+	s.records = make(map[string]map[string]interface{})
+	s.schemas = make(map[string]string)
+	s.partialKeys = make(map[string]map[string][]string)
+
+	// Save the empty state to persistent storage
+	return s.saveToPersistent()
+}
+
 // extractKeyFromRecord extracts key from record data by looking for common key fields
 func extractKeyFromRecord(recordData string) string {
 	var record map[string]interface{}

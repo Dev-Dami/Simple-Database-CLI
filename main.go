@@ -139,6 +139,7 @@ func printUsage() {
 	fmt.Println("  simplebson view <schema> <key>                     - View a record")
 	fmt.Println("  simplebson delete <schema> <key>                   - Delete a record")
 	fmt.Println("  simplebson list <schema>                           - List all records of a schema")
+	fmt.Println("  simplebson wipe/drop                                - Wipe entire database")
 	fmt.Println("")
 	fmt.Println("Examples:")
 	fmt.Println("  simplebson schema User name:string age:int email:string")
@@ -146,4 +147,5 @@ func printUsage() {
 	fmt.Println("  simplebson get User Alice")
 	fmt.Println("  simplebson list User")
 	fmt.Println("  simplebson delete User Alice")
+	fmt.Println("  simplebson wipe")
 }
