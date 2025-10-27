@@ -116,6 +116,14 @@ func main() {
 			fmt.Printf("Schema '%s' created successfully\n", schema)
 		}
 
+	case "wipe", "drop":
+		err := storage.WipeDatabase()
+		if err != nil {
+			fmt.Printf("Error wiping database: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Database wiped successfully")
+
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 		printUsage()
