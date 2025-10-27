@@ -30,9 +30,7 @@ func ParseCommand(command string, args []string) ([]string, error) {
 
 	case "schema":
 		// Format: schema <schema_name> [field_definitions...]
-		if len(args) < 1 {
-			return nil, fmt.Errorf("not enough arguments for 'schema' command")
-		}
+		// If no args provided, this is to list all schemas
 		return args, nil
 
 	default:
