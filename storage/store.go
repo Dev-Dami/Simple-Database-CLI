@@ -8,27 +8,23 @@ import (
 	"path/filepath"
 )
 
-// Store handles persistent storage of records in BSON format
+// Store handles persistent storage
 type Store struct {
 	filePath string
 }
 
-// NewStore creates a new storage instance
 func NewStore(filePath string) *Store {
 	return &Store{
 		filePath: filePath,
 	}
 }
 
-// SaveRecords saves records to the storage file
 func (s *Store) SaveRecords(records map[string]map[string]interface{}) error {
-	// Create directory if it doesn't exist
 	dir := filepath.Dir(s.filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %v", err)
 	}
 
-	// Convert the records map to JSON and save
 	jsonData, err := json.MarshalIndent(records, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal records: %v", err)
@@ -41,11 +37,8 @@ func (s *Store) SaveRecords(records map[string]map[string]interface{}) error {
 	return nil
 }
 
-// LoadRecords loads records from the storage file
 func (s *Store) LoadRecords() (map[string]map[string]interface{}, error) {
-	// Check if file exists
 	if _, err := os.Stat(s.filePath); os.IsNotExist(err) {
-		// Return empty records if file doesn't exist
 		return make(map[string]map[string]interface{}), nil
 	}
 
@@ -64,7 +57,6 @@ func (s *Store) LoadRecords() (map[string]map[string]interface{}, error) {
 
 // SaveSchemas saves schema definitions to the storage file
 func (s *Store) SaveSchemas(schemas map[string]string) error {
-	// For now, we'll improve the schema storage approach by using a reserved key
 	records, err := s.LoadRecords()
 	if err != nil {
 		return err
@@ -81,7 +73,7 @@ func (s *Store) SaveSchemas(schemas map[string]string) error {
 		records = make(map[string]map[string]interface{})
 	}
 	records["__schemas__"] = map[string]interface{}{"definition": string(schemaJson)}
-	
+
 	return s.SaveRecords(records)
 }
 
@@ -93,7 +85,7 @@ func (s *Store) LoadSchemas() (map[string]string, error) {
 	}
 
 	schemas := make(map[string]string)
-	
+
 	schemaData, exists := records["__schemas__"]
 	if !exists {
 		return schemas, nil
@@ -103,7 +95,7 @@ func (s *Store) LoadSchemas() (map[string]string, error) {
 	if !ok {
 		return schemas, nil
 	}
-	
+
 	schemaStr, ok := schemaEntry.(string)
 	if !ok {
 		return schemas, nil
