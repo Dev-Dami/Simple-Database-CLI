@@ -5,29 +5,30 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"simplebson/config"
 	"simplebson/storage"
 )
 
-// Storage represents in-memory storage with persistent backup
+// Storage manages records in memory with BSON persistence
 type Storage struct {
-	config     *config.Config
-	store      *storage.Store
-	records    map[string]map[string]interface{} // schema -> key -> record
-	schemas    map[string]string                 // schema name -> field definitions
-	partialKeys map[string]map[string][]string   // schema -> partial key -> list of full keys
-	mutex      sync.RWMutex
+	config      *config.Config
+	store       *storage.Store
+	records     map[string]map[string]interface{} // Maps schemas to records
+	schemas     map[string]string                 // Schema definitions
+	partialKeys map[string]map[string][]string    // For partial key lookups
+	mutex       sync.RWMutex
 }
 
-// NewStorage creates a new in-memory storage instance
+// NewStorage creates a new storage instance with persistence
 func NewStorage(config *config.Config) *Storage {
 	s := &Storage{
 		config:      config,
 		store:       storage.NewStore(config.StoragePath),
 		records:     make(map[string]map[string]interface{}),
 		schemas:     make(map[string]string),
-		partialKeys: make(map[string]map[string][]string), // Initialize partial keys map
+		partialKeys: make(map[string]map[string][]string),
 	}
 
 	// Load existing data from persistent storage
@@ -36,11 +37,10 @@ func NewStorage(config *config.Config) *Storage {
 	return s
 }
 
-// loadFromPersistent loads data from persistent storage
+// loadFromPersistent loads data from the BSON file
 func (s *Storage) loadFromPersistent() {
 	records, err := s.store.LoadRecords()
 	if err != nil {
-		// If loading fails, start with empty records
 		s.records = make(map[string]map[string]interface{})
 	} else {
 		s.records = records
@@ -48,22 +48,20 @@ func (s *Storage) loadFromPersistent() {
 
 	schemas, err := s.store.LoadSchemas()
 	if err != nil {
-		// If loading schemas fails, start with empty schemas
 		s.schemas = make(map[string]string)
 	} else {
 		s.schemas = schemas
 	}
 	
-	// Rebuild partial key index after loading data
 	s.rebuildPartialKeyIndex()
 }
 
-// rebuildPartialKeyIndex rebuilds the partial key index from current records
+// rebuildPartialKeyIndex builds partial key lookup table
 func (s *Storage) rebuildPartialKeyIndex() {
 	s.partialKeys = make(map[string]map[string][]string)
 	
 	for schemaName, schemaRecords := range s.records {
-		if schemaName == "__schemas__" { // Skip the special schemas entry
+		if schemaName == "__schemas__" {
 			continue
 		}
 		
@@ -79,7 +77,7 @@ func (s *Storage) rebuildPartialKeyIndex() {
 	}
 }
 
-// saveToPersistent saves data to persistent storage
+// saveToPersistent writes data to the BSON file
 func (s *Storage) saveToPersistent() error {
 	if err := s.store.SaveRecords(s.records); err != nil {
 		return err
@@ -92,14 +90,13 @@ func (s *Storage) saveToPersistent() error {
 	return nil
 }
 
-// CreateSchema creates a new schema
+// CreateSchema adds a new schema definition
 func (s *Storage) CreateSchema(name string, fields string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	s.schemas[name] = fields
 
-	// Initialize the schema's record map if it doesn't exist
 	if _, exists := s.records[name]; !exists {
 		s.records[name] = make(map[string]interface{})
 	}
@@ -107,7 +104,7 @@ func (s *Storage) CreateSchema(name string, fields string) error {
 	return s.saveToPersistent()
 }
 
-// GetSchema retrieves schema definition
+// GetSchema returns a schema definition
 func (s *Storage) GetSchema(name string) (string, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -138,25 +135,35 @@ func (s *Storage) AddRecord(schemaName string, recordData string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// Check if schema exists
-	_, exists := s.schemas[schemaName]
-	if !exists {
+	if _, exists := s.schemas[schemaName]; !exists {
 		return fmt.Errorf("schema '%s' does not exist", schemaName)
 	}
 
-	// Validate record against schema
-	err := s.validateRecordAgainstSchema(schemaName, recordData)
+	// Parse the incoming record
+	var parsedRecord map[string]interface{}
+	if err := json.Unmarshal([]byte(recordData), &parsedRecord); err != nil {
+		return fmt.Errorf("invalid JSON format: %v", err)
+	}
+
+	// Add timestamp fields
+	now := time.Now().Format(time.RFC3339)
+	parsedRecord["created_at"] = now
+	parsedRecord["updated_at"] = now
+
+	// Marshal back to JSON string
+	updatedRecordData, err := json.Marshal(parsedRecord)
 	if err != nil {
+		return fmt.Errorf("failed to marshal updated record: %v", err)
+	}
+
+	// Validate the record with the new timestamp fields
+	if err := s.validateRecordAgainstSchema(schemaName, string(updatedRecordData)); err != nil {
 		return fmt.Errorf("record validation failed: %v", err)
 	}
 
-	// Extract the key from the record data
-	key := extractKeyFromRecord(recordData)
-	if key == "" || key == recordData {
-		// If we couldn't extract a proper key, try to parse the record to get a meaningful key
-		parsedRecord := make(map[string]interface{})
-		if err := json.Unmarshal([]byte(recordData), &parsedRecord); err == nil {
-			// Use the original recordData as a fallback key if needed
+	key := extractKeyFromRecord(string(updatedRecordData))
+	if key == "" || key == string(updatedRecordData) {
+		if err := json.Unmarshal(updatedRecordData, &parsedRecord); err == nil {
 			for _, field := range []string{"id", "name", "key"} {
 				if val, exists := parsedRecord[field]; exists {
 					key = fmt.Sprintf("%v", val)
@@ -166,52 +173,40 @@ func (s *Storage) AddRecord(schemaName string, recordData string) error {
 		}
 	}
 	
-	// If we still don't have a valid key, return an error
 	if key == "" {
-		return fmt.Errorf("could not extract a valid key from record data: %s", recordData)
+		return fmt.Errorf("could not extract a valid key from record data: %s", string(updatedRecordData))
 	}
 
-	// Initialize the schema's record map if it doesn't exist
 	if _, exists := s.records[schemaName]; !exists {
 		s.records[schemaName] = make(map[string]interface{})
 	}
 
-	// Store the record
-	s.records[schemaName][key] = recordData
-
-	// Update partial key index
+	s.records[schemaName][key] = string(updatedRecordData)
 	s.updatePartialKeyIndex(schemaName, key, true)
 
 	return s.saveToPersistent()
 }
 
-// validateRecordAgainstSchema validates a record against the schema definition
+// validateRecordAgainstSchema checks if record matches schema types
 func (s *Storage) validateRecordAgainstSchema(schemaName string, recordData string) error {
 	schemaDef, exists := s.schemas[schemaName]
 	if !exists {
 		return fmt.Errorf("schema '%s' does not exist", schemaName)
 	}
 
-	// Parse the record data to validate
 	var record map[string]interface{}
 	if err := json.Unmarshal([]byte(recordData), &record); err != nil {
 		return fmt.Errorf("invalid JSON format: %v", err)
 	}
 
-	// Parse the schema definition to check fields
 	fields := parseSchemaFields(schemaDef)
 	
-	// Validate that all required fields in schema are present in record
 	for field, fieldType := range fields {
-		_, exists := record[field]
-		if !exists {
-			// For MVP, we'll allow optional fields but validate types for present fields
+		if _, exists := record[field]; !exists {
 			continue
 		}
 		
-		// Validate data type if field exists
-		err := validateFieldType(record[field], fieldType)
-		if err != nil {
+		if err := validateFieldType(record[field], fieldType); err != nil {
 			return fmt.Errorf("field '%s' type validation failed: %v", field, err)
 		}
 	}
@@ -242,7 +237,7 @@ func parseSchemaFields(schemaDef string) map[string]string {
 	return fields
 }
 
-// validateFieldType validates the value against the expected type
+// validateFieldType checks if value matches expected type
 func validateFieldType(value interface{}, expectedType string) error {
 	switch expectedType {
 	case "string":

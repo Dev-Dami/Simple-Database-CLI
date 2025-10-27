@@ -5,11 +5,11 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	
+
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// Store handles persistent storage
+// store handle file persistence for the database
 type Store struct {
 	filePath string
 }
@@ -70,7 +70,7 @@ func (s *Store) SaveSchemas(schemas map[string]string) error {
 		records = make(map[string]map[string]interface{})
 	}
 	records["__schemas__"] = make(map[string]interface{})
-	
+
 	// Iterate through the schema definitions and add them to the __schemas__ map
 	for key, value := range schemas {
 		records["__schemas__"][key] = value
