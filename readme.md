@@ -104,7 +104,27 @@ When adding records, SimpleBSONDB validates:
 
 ## Storage
 
-Data is automatically persisted to `storage/store.bson` in JSON format. The database consists of:
+Data is automatically persisted to `storage/store.bson` in binary BSON format. The database consists of:
 - Records stored by schema and key
 - Schema definitions stored separately
 - Automatic saving after each operation
+
+## Future Enhancement: Multiple BSON Files
+
+We plan to enhance SimpleBSONDB to allow users to create and manage their own `.bson` files, similar to how SQLite allows multiple database files. This will provide:
+- Multiple database files for different purposes
+- Better data organization and separation
+- Portability of individual data sets
+- The ability to work with multiple BSON database files simultaneously
+
+Example future usage:
+```bash
+# Create a new database file
+simplebson -db mydata.bson schema User name:string age:int
+
+# Work with different database files
+simplebson -db users.bson add User "{\"name\":\"Alice\", \"age\":30}"
+simplebson -db products.bson add Product "{\"id\":\"P001\", \"name\":\"Laptop\"}"
+```
+
+This enhancement will make SimpleBSONDB as flexible as SQLite while maintaining its simplicity and BSON efficiency.
