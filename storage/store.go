@@ -1,11 +1,12 @@
 package storage
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // Store handles persistent storage
