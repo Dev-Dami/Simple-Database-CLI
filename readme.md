@@ -9,6 +9,8 @@ SimpleBSONDB is a lightweight Go-based CLI database for storing user or arbitrar
 * JSON record validation against schema definitions
 * Persistent storage with automatic saving
 * CLI commands for managing database records
+* Automatic timestamp fields (`created_at` and `updated_at`) for all new entries
+* Wipe/drop command to clear entire database
 
 ## Installation
 
@@ -40,6 +42,10 @@ simplebson schema <schema_name>
 
 # List all schemas
 simplebson schema
+
+# Wipe entire database (remove all schemas and records)
+simplebson wipe
+simplebson drop  # alias for wipe
 ```
 
 ## Schema Definition
@@ -59,12 +65,12 @@ Example: `simplebson schema User name:string age:int email:string`
 # Create a User schema
 simplebson schema User name:string age:int email:string
 
-# Add users
+# Add users (timestamps will be automatically added)
 simplebson add User "{\"name\":\"Alice\", \"age\":30, \"email\":\"alice@example.com\"}"
 simplebson add User "{\"name\":\"Bob\", \"age\":25, \"email\":\"bob@example.com\"}"
 simplebson add User "{\"name\":\"Alicia\", \"age\":28, \"email\":\"alicia@example.com\"}"
 
-# Retrieve users (using full key)
+# Retrieve users (will include created_at and updated_at timestamps)
 simplebson get User Alice
 
 # Retrieve using partial key (first 5 characters or less)
@@ -86,7 +92,20 @@ simplebson delete User Alice
 # Create another schema
 simplebson schema Product id:string name:string price:float
 simplebson add Product "{\"id\":\"P001\", \"name\":\"Laptop\", \"price\":999.99}"
+
+# Wipe or drop the entire database
+simplebson wipe
+# or
+simplebson drop
 ```
+
+## Automatic Timestamps
+
+SimpleBSONDB automatically adds timestamp fields to all new records:
+- `created_at`: Time when the record was created (in RFC3339 format)
+- `updated_at`: Time when the record was last updated (currently same as created_at for new records)
+
+Timestamps are added automatically when using the `add` command and do not need to be specified in the schema definition.
 
 ## Partial Key Matching
 
@@ -101,6 +120,14 @@ When adding records, SimpleBSONDB validates:
 - JSON format validity
 - Field types according to the schema definition
 - Required schema existence
+
+## Database Wipe/Drop
+
+The `wipe` and `drop` commands will completely clear the database:
+- Remove all schemas and records
+- Reset the database to an empty state
+- Persist the empty state to storage
+- Both `wipe` and `drop` are aliases for the same functionality
 
 ## Storage
 
