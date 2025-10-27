@@ -33,6 +33,10 @@ func ParseCommand(command string, args []string) ([]string, error) {
 		// If no args provided, this is to list all schemas
 		return args, nil
 
+	case "wipe", "drop":
+		// Format: wipe/drop (no args needed)
+		return args, nil
+
 	default:
 		return nil, fmt.Errorf("unknown command: %s", command)
 	}
