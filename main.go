@@ -18,21 +18,16 @@ func main() {
 
 	command := strings.ToLower(os.Args[1])
 
-	// Initialize configuration
 	config := config.LoadConfig()
 
-	// Initialize memory storage
 	storage := memory.NewStorage(config)
 
-	// Parse command arguments
 	args := os.Args[2:]
 	parsedArgs, err := preprocessing.ParseCommand(command, args)
 	if err != nil {
 		fmt.Printf("Error parsing command: %v\n", err)
 		os.Exit(1)
 	}
-
-	// Execute command based on parsed input
 	switch command {
 	case "add":
 		if len(parsedArgs) < 2 {
@@ -93,7 +88,6 @@ func main() {
 
 	case "schema":
 		if len(parsedArgs) < 1 {
-			// If no arguments, list all schemas
 			schemas := storage.ListSchemas()
 			if len(schemas) == 0 {
 				fmt.Println("No schemas defined")
@@ -104,7 +98,6 @@ func main() {
 				}
 			}
 		} else if len(parsedArgs) == 1 {
-			// If one argument, show schema details
 			schema := parsedArgs[0]
 			schemaDef, err := storage.GetSchema(schema)
 			if err != nil {
@@ -113,7 +106,6 @@ func main() {
 			}
 			fmt.Printf("Schema '%s': %s\n", schema, schemaDef)
 		} else {
-			// If multiple arguments, create new schema
 			schema := parsedArgs[0]
 			fieldsStr := strings.Join(parsedArgs[1:], " ")
 			err := storage.CreateSchema(schema, fieldsStr)
