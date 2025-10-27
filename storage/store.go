@@ -26,12 +26,12 @@ func (s *Store) SaveRecords(records map[string]map[string]interface{}) error {
 		return fmt.Errorf("failed to create directory: %v", err)
 	}
 
-	jsonData, err := json.MarshalIndent(records, "", "  ")
+	bsonData, err := bson.Marshal(records)
 	if err != nil {
 		return fmt.Errorf("failed to marshal records: %v", err)
 	}
 
-	if err := ioutil.WriteFile(s.filePath, jsonData, 0644); err != nil {
+	if err := ioutil.WriteFile(s.filePath, bsonData, 0644); err != nil {
 		return fmt.Errorf("failed to write file: %v", err)
 	}
 
@@ -49,7 +49,7 @@ func (s *Store) LoadRecords() (map[string]map[string]interface{}, error) {
 	}
 
 	var records map[string]map[string]interface{}
-	if err := json.Unmarshal(data, &records); err != nil {
+	if err := bson.Unmarshal(data, &records); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal records: %v", err)
 	}
 
@@ -64,16 +64,17 @@ func (s *Store) SaveSchemas(schemas map[string]string) error {
 	}
 
 	// Store schemas in a special "__schemas__" entry to avoid conflicts with actual records
-	schemaJson, err := json.Marshal(schemas)
-	if err != nil {
-		return fmt.Errorf("failed to marshal schemas: %v", err)
-	}
-
+	// For BSON, we can store the schemas directly in the structure
 	// Ensure records map exists
 	if records == nil {
 		records = make(map[string]map[string]interface{})
 	}
-	records["__schemas__"] = map[string]interface{}{"definition": string(schemaJson)}
+	records["__schemas__"] = make(map[string]interface{})
+	
+	// Iterate through the schema definitions and add them to the __schemas__ map
+	for key, value := range schemas {
+		records["__schemas__"][key] = value
+	}
 
 	return s.SaveRecords(records)
 }
@@ -92,19 +93,11 @@ func (s *Store) LoadSchemas() (map[string]string, error) {
 		return schemas, nil
 	}
 
-	schemaEntry, ok := schemaData["definition"]
-	if !ok {
-		return schemas, nil
-	}
-
-	schemaStr, ok := schemaEntry.(string)
-	if !ok {
-		return schemas, nil
-	}
-
-	err = json.Unmarshal([]byte(schemaStr), &schemas)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal schemas: %v", err)
+	// Iterate through the schema entries and convert them back to strings
+	for key, value := range schemaData {
+		if strValue, ok := value.(string); ok {
+			schemas[key] = strValue
+		}
 	}
 
 	return schemas, nil
