@@ -20,6 +20,10 @@ func main() {
 
 	config := config.LoadConfig()
 
+	// Initialize LSM-enhanced preprocessor
+	// This creates an instance that could leverage LSM tree optimizations
+	_ = preprocessing.NewLSMPreprocessor(1000) // Size can be configured
+
 	storage := memory.NewStorage(config)
 
 	args := os.Args[2:]
