@@ -63,7 +63,7 @@ func (s *Store) SaveSchemas(schemas map[string]string) error {
 		return err
 	}
 
-	// Store schemas in a special "__schemas__" entry to avoid conflicts with actual records
+
 	// For BSON, we can store the schemas directly in the structure
 	// Ensure records map exists
 	if records == nil {
@@ -71,7 +71,7 @@ func (s *Store) SaveSchemas(schemas map[string]string) error {
 	}
 	records["__schemas__"] = make(map[string]interface{})
 
-	// Iterate through the schema definitions and add them to the __schemas__ map
+	// Iterate through the schema definitions and add them to the map
 	for key, value := range schemas {
 		records["__schemas__"][key] = value
 	}

@@ -53,7 +53,7 @@ simplebson drop  # alias for wipe
 When defining a schema, specify field names and types in the format `fieldname:type`:
 - `string` - text values
 - `int` or `integer` - whole numbers
-- `float` or `double` - decimal numbers  
+- `float` or `double` - decimal numbers
 - `bool` or `boolean` - true/false values
 - `object` or `json` - nested objects (no validation)
 
