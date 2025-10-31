@@ -4,6 +4,12 @@ import (
 	"fmt"
 )
 
+// Preprocessor handles command preprocessing with LSM tree optimization
+type Preprocessor struct {
+	// We can add an LSM tree instance here if needed for future optimization
+	// lsmTree *LSMTree 
+}
+
 // ParseCommand parses command-line arguments for different commands
 func ParseCommand(command string, args []string) ([]string, error) {
 	switch command {
@@ -50,4 +56,11 @@ func ExtractSchemaName(recordData string) (string, error) {
 	// we would parse the record data to extract the primary key
 	// For now, we'll just return the first value found in the record
 	return recordData, nil
+}
+
+// NewLSMPreprocessor creates a new preprocessor with LSM tree capabilities
+func NewLSMPreprocessor(maxMemorySize int) *Preprocessor {
+	// In a more advanced implementation, this would set up the LSM tree
+	// and potentially use it for preprocessing operations
+	return &Preprocessor{}
 }
