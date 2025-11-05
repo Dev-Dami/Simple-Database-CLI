@@ -500,20 +500,22 @@ func (s *Storage) DeleteRecord(schemaName string, key string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	dbState := s.getDBState(s.currentDB)
+
 	// Check if schema exists
-	_, exists := s.schemas[schemaName]
+	_, exists := dbState.schemas[schemaName]
 	if !exists {
 		return fmt.Errorf("schema '%s' does not exist", schemaName)
 	}
 
 	// Check if record exists
-	_, exists = s.records[schemaName][key]
+	_, exists = dbState.records[schemaName][key]
 	if !exists {
 		return fmt.Errorf("record with key '%s' does not exist in schema '%s'", key, schemaName)
 	}
 
 	// Delete the record
-	delete(s.records[schemaName], key)
+	delete(dbState.records[schemaName], key)
 
 	// Update partial key index
 	s.updatePartialKeyIndex(schemaName, key, false)
@@ -526,14 +528,16 @@ func (s *Storage) ListRecords(schemaName string) ([]interface{}, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
+	dbState := s.getDBState(s.currentDB)
+
 	// Check if schema exists
-	_, exists := s.schemas[schemaName]
+	_, exists := dbState.schemas[schemaName]
 	if !exists {
 		return nil, fmt.Errorf("schema '%s' does not exist", schemaName)
 	}
 
 	records := make([]interface{}, 0)
-	for _, record := range s.records[schemaName] {
+	for _, record := range dbState.records[schemaName] {
 		records = append(records, record)
 	}
 
