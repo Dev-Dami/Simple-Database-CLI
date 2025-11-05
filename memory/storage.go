@@ -107,23 +107,24 @@ func (s *Storage) loadFromPersistent() {
 	s.rebuildPartialKeyIndex()
 }
 
-// rebuildPartialKeyIndex builds partial key lookup table
+// rebuildPartialKeyIndex builds partial key lookup table for current database
 func (s *Storage) rebuildPartialKeyIndex() {
-	s.partialKeys = make(map[string]map[string][]string)
+	dbState := s.getDBState(s.currentDB)
+	dbState.partialKeys = make(map[string]map[string][]string)
 
-	for schemaName, schemaRecords := range s.records {
+	for schemaName, schemaRecords := range dbState.records {
 		if schemaName == "__schemas__" {
 			continue
 		}
 
-		s.partialKeys[schemaName] = make(map[string][]string)
+		dbState.partialKeys[schemaName] = make(map[string][]string)
 
 		for fullKey := range schemaRecords {
 			partialKey := getPartialKey(fullKey)
-			if _, exists := s.partialKeys[schemaName][partialKey]; !exists {
-				s.partialKeys[schemaName][partialKey] = []string{}
+			if _, exists := dbState.partialKeys[schemaName][partialKey]; !exists {
+				dbState.partialKeys[schemaName][partialKey] = []string{}
 			}
-			s.partialKeys[schemaName][partialKey] = append(s.partialKeys[schemaName][partialKey], fullKey)
+			dbState.partialKeys[schemaName][partialKey] = append(dbState.partialKeys[schemaName][partialKey], fullKey)
 		}
 	}
 }
@@ -179,10 +180,11 @@ func (s *Storage) CreateSchema(name string, fields string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	s.schemas[name] = fields
+	dbState := s.getDBState(s.currentDB)
+	dbState.schemas[name] = fields
 
-	if _, exists := s.records[name]; !exists {
-		s.records[name] = make(map[string]interface{})
+	if _, exists := dbState.records[name]; !exists {
+		dbState.records[name] = make(map[string]interface{})
 	}
 
 	return s.saveToPersistent()
