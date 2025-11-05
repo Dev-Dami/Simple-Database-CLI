@@ -14,29 +14,39 @@ import (
 	"simplebson/storage"
 )
 
-// Storage manages records in memory with BSON persistence
-type Storage struct {
-	config      *config.Config
-	stores      map[string]*storage.Store         // Maps database names to stores
-	currentDB   string                            // The currently selected database
+// DatabaseState holds the data for a single database
+type DatabaseState struct {
 	records     map[string]map[string]interface{} // Maps schemas to records
 	schemas     map[string]string                 // Schema definitions
 	partialKeys map[string]map[string][]string    // For partial key lookups
-	mutex       sync.RWMutex
+}
+
+// Storage manages records in memory with BSON persistence
+type Storage struct {
+	config    *config.Config
+	stores    map[string]*storage.Store // Maps database names to stores
+	dbStates  map[string]*DatabaseState // Maps database names to their data state
+	currentDB string                    // The currently selected database
+	mutex     sync.RWMutex
 }
 
 // NewStorage creates a new storage instance with persistence
 func NewStorage(config *config.Config) *Storage {
 	s := &Storage{
-		config:      config,
-		stores:      make(map[string]*storage.Store),
-		currentDB:   "default", // Default database
+		config:    config,
+		stores:    make(map[string]*storage.Store),
+		dbStates:  make(map[string]*DatabaseState),
+		currentDB: "default", // Default database
+	}
+
+	// Initialize default database state
+	s.dbStates["default"] = &DatabaseState{
 		records:     make(map[string]map[string]interface{}),
 		schemas:     make(map[string]string),
 		partialKeys: make(map[string]map[string][]string),
 	}
 
-	// Load existing data from persistent storage
+	// Load existing data from persistent storage for default database
 	s.loadFromPersistent()
 
 	return s
@@ -59,21 +69,39 @@ func (s *Storage) getOrCreateStore(dbName string) *storage.Store {
 	return newStore
 }
 
-// loadFromPersistent loads data from the BSON file
+// getDBState returns the state for the given database, creating it if it doesn't exist
+func (s *Storage) getDBState(dbName string) *DatabaseState {
+	if dbState, exists := s.dbStates[dbName]; exists {
+		return dbState
+	}
+
+	// Create new database state
+	dbState := &DatabaseState{
+		records:     make(map[string]map[string]interface{}),
+		schemas:     make(map[string]string),
+		partialKeys: make(map[string]map[string][]string),
+	}
+	s.dbStates[dbName] = dbState
+	return dbState
+}
+
+// loadFromPersistent loads data from the BSON file for the current database
 func (s *Storage) loadFromPersistent() {
 	store := s.getOrCreateStore(s.currentDB)
+	dbState := s.getDBState(s.currentDB)
+	
 	records, err := store.LoadRecords()
 	if err != nil {
-		s.records = make(map[string]map[string]interface{})
+		dbState.records = make(map[string]map[string]interface{})
 	} else {
-		s.records = records
+		dbState.records = records
 	}
 
 	schemas, err := store.LoadSchemas()
 	if err != nil {
-		s.schemas = make(map[string]string)
+		dbState.schemas = make(map[string]string)
 	} else {
-		s.schemas = schemas
+		dbState.schemas = schemas
 	}
 
 	s.rebuildPartialKeyIndex()
@@ -100,14 +128,16 @@ func (s *Storage) rebuildPartialKeyIndex() {
 	}
 }
 
-// saveToPersistent writes data to the BSON file
+// saveToPersistent writes data to the BSON file for the current database
 func (s *Storage) saveToPersistent() error {
 	store := s.getOrCreateStore(s.currentDB)
-	if err := store.SaveRecords(s.records); err != nil {
+	dbState := s.getDBState(s.currentDB)
+	
+	if err := store.SaveRecords(dbState.records); err != nil {
 		return err
 	}
 
-	if err := store.SaveSchemas(s.schemas); err != nil {
+	if err := store.SaveSchemas(dbState.schemas); err != nil {
 		return err
 	}
 
