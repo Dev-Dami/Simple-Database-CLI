@@ -132,8 +132,8 @@ func (s *Storage) ListDBs() ([]string, error) {
 
 	var dbs []string
 	for _, file := range files {
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".bson") {
-			dbs = append(dbs, strings.TrimSuffix(file.Name(), ".bson"))
+		if file.IsDir() {
+			dbs = append(dbs, file.Name())
 		}
 	}
 
