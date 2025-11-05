@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"simplebson/config"
-	"simplebson/storage"
+	"simplebson/dbs"
 )
 
 // DatabaseState holds the data for a single database
@@ -24,7 +24,7 @@ type DatabaseState struct {
 // Storage manages records in memory with BSON persistence
 type Storage struct {
 	config    *config.Config
-	stores    map[string]*storage.Store // Maps database names to stores
+	stores    map[string]*dbs.Store // Maps database names to stores
 	dbStates  map[string]*DatabaseState // Maps database names to their data state
 	currentDB string                    // The currently selected database
 	mutex     sync.RWMutex
@@ -34,7 +34,7 @@ type Storage struct {
 func NewStorage(config *config.Config) *Storage {
 	s := &Storage{
 		config:    config,
-		stores:    make(map[string]*storage.Store),
+		stores:    make(map[string]*dbs.Store),
 		dbStates:  make(map[string]*DatabaseState),
 		currentDB: "default", // Default database
 	}
@@ -53,18 +53,18 @@ func NewStorage(config *config.Config) *Storage {
 }
 
 // getOrCreateStore returns the store for the given database, creating it if it doesn't exist
-func (s *Storage) getOrCreateStore(dbName string) *storage.Store {
+func (s *Storage) getOrCreateStore(dbName string) *dbs.Store {
 	if store, exists := s.stores[dbName]; exists {
 		return store
 	}
 
 	// If the store doesn't exist, create a new one
-	dbPath := filepath.Join(filepath.Dir(s.config.StoragePath), dbName)
+	dbPath := filepath.Join("dbs", dbName)
 	if err := os.MkdirAll(dbPath, 0755); err != nil {
 		// Handle error, maybe log it or return an error
 	}
-	storagePath := filepath.Join(dbPath, "store.bson")
-	newStore := storage.NewStore(storagePath)
+	storagePath := filepath.Join(dbPath, "db.bson")
+	newStore := dbs.NewStore(storagePath)
 	s.stores[dbName] = newStore
 	return newStore
 }
@@ -160,19 +160,19 @@ func (s *Storage) UseDB(dbName string) {
 
 // ListDBs lists all available databases
 func (s *Storage) ListDBs() ([]string, error) {
-	files, err := ioutil.ReadDir(filepath.Dir(s.config.StoragePath))
+	files, err := ioutil.ReadDir("dbs")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read storage directory: %v", err)
+		return nil, fmt.Errorf("failed to read dbs directory: %v", err)
 	}
 
-	var dbs []string
+	var dbsList []string
 	for _, file := range files {
 		if file.IsDir() {
-			dbs = append(dbs, file.Name())
+			dbsList = append(dbsList, file.Name())
 		}
 	}
 
-	return dbs, nil
+	return dbsList, nil
 }
 
 // CreateSchema adds a new schema definition
@@ -380,10 +380,8 @@ func getPartialKey(fullKey string) string {
 }
 
 // updatePartialKeyIndex adds or removes a key from the partial key index
+// NOTE: This function should be called from within a locked context
 func (s *Storage) updatePartialKeyIndex(schemaName, fullKey string, add bool) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	dbState := s.getDBState(s.currentDB)
 	
 	if _, exists := dbState.partialKeys[schemaName]; !exists {

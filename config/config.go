@@ -18,7 +18,7 @@ func LoadConfig() *Config {
 		wd = "."
 	}
 
-	storagePath := filepath.Join(wd, "storage", "store.bson")
+	storagePath := filepath.Join(wd, "dbs", "default", "db.bson")
 
 	return &Config{
 		StoragePath: storagePath,

@@ -1,4 +1,4 @@
-package storage
+package dbs
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// Store handles file persistence for the database
+// Store handles file persistence for a single database
 type Store struct {
 	filePath string
 }
@@ -62,7 +62,6 @@ func (s *Store) SaveSchemas(schemas map[string]string) error {
 	if err != nil {
 		return err
 	}
-
 
 	// For BSON, we can store the schemas directly in the structure
 	// Ensure records map exists
