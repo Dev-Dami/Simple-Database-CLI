@@ -3,6 +3,8 @@ package memory
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -105,6 +107,32 @@ func (s *Storage) saveToPersistent() error {
 	}
 
 	return nil
+}
+
+// UseDB switches to a different database
+func (s *Storage) UseDB(dbName string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.currentDB = dbName
+	s.loadFromPersistent()
+}
+
+// ListDBs lists all available databases
+func (s *Storage) ListDBs() ([]string, error) {
+	files, err := ioutil.ReadDir(filepath.Dir(s.config.StoragePath))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read storage directory: %v", err)
+	}
+
+	var dbs []string
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".bson") {
+			dbs = append(dbs, strings.TrimSuffix(file.Name(), ".bson"))
+		}
+	}
+
+	return dbs, nil
 }
 
 // CreateSchema adds a new schema definition
