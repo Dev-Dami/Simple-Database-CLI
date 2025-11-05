@@ -278,11 +278,10 @@ func (s *Storage) AddRecord(schemaName string, recordData string) error {
 }
 
 // validateRecordAgainstSchema checks if record matches schema types
+// NOTE: This function should be called from within a locked context
 func (s *Storage) validateRecordAgainstSchema(schemaName string, recordData string) error {
-	s.mutex.RLock()
 	dbState := s.getDBState(s.currentDB)
 	schemaDef, exists := dbState.schemas[schemaName]
-	s.mutex.RUnlock()
 	
 	if !exists {
 		return fmt.Errorf("schema '%s' does not exist", schemaName)
