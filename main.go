@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"simplebson/config"
-	"simplebson/memory"
-	"simplebson/preprocessing"
+	"./config"
+	"./memory"
+	"./preprocessing"
 )
 
 func main() {
