@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -48,7 +49,11 @@ func (s *Storage) getOrCreateStore(dbName string) *storage.Store {
 	}
 
 	// If the store doesn't exist, create a new one
-	storagePath := strings.Replace(s.config.StoragePath, "store.bson", dbName+".bson", 1)
+	dbPath := filepath.Join(filepath.Dir(s.config.StoragePath), dbName)
+	if err := os.MkdirAll(dbPath, 0755); err != nil {
+		// Handle error, maybe log it or return an error
+	}
+	storagePath := filepath.Join(dbPath, "store.bson")
 	newStore := storage.NewStore(storagePath)
 	s.stores[dbName] = newStore
 	return newStore
