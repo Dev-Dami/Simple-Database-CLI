@@ -195,7 +195,8 @@ func (s *Storage) GetSchema(name string) (string, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	schema, exists := s.schemas[name]
+	dbState := s.getDBState(s.currentDB)
+	schema, exists := dbState.schemas[name]
 	if !exists {
 		return "", fmt.Errorf("schema '%s' does not exist", name)
 	}
