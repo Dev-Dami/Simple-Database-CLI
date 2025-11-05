@@ -129,6 +129,21 @@ func main() {
 		storage.UseDB(dbName)
 		fmt.Printf("Switched to database '%s'\n", dbName)
 
+	case "dbs":
+		dbs, err := storage.ListDBs()
+		if err != nil {
+			fmt.Printf("Error listing databases: %v\n", err)
+			os.Exit(1)
+		}
+		if len(dbs) == 0 {
+			fmt.Println("No databases found")
+		} else {
+			fmt.Println("Available databases:")
+			for _, db := range dbs {
+				fmt.Printf("  %s\n", db)
+			}
+		}
+
 	case "wipe", "drop":
 		err := storage.WipeDatabase()
 		if err != nil {
