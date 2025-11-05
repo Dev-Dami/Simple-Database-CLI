@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"simplebson/config"
-	"./../storage"
+	"simplebson/storage"
 )
 
 // DatabaseState holds the data for a single database
