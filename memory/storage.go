@@ -39,16 +39,30 @@ func NewStorage(config *config.Config) *Storage {
 	return s
 }
 
+// getOrCreateStore returns the store for the given database, creating it if it doesn't exist
+func (s *Storage) getOrCreateStore(dbName string) *storage.Store {
+	if store, exists := s.stores[dbName]; exists {
+		return store
+	}
+
+	// If the store doesn't exist, create a new one
+	storagePath := strings.Replace(s.config.StoragePath, "store.bson", dbName+".bson", 1)
+	newStore := storage.NewStore(storagePath)
+	s.stores[dbName] = newStore
+	return newStore
+}
+
 // loadFromPersistent loads data from the BSON file
 func (s *Storage) loadFromPersistent() {
-	records, err := s.store.LoadRecords()
+	store := s.getOrCreateStore(s.currentDB)
+	records, err := store.LoadRecords()
 	if err != nil {
 		s.records = make(map[string]map[string]interface{})
 	} else {
 		s.records = records
 	}
 
-	schemas, err := s.store.LoadSchemas()
+	schemas, err := store.LoadSchemas()
 	if err != nil {
 		s.schemas = make(map[string]string)
 	} else {
