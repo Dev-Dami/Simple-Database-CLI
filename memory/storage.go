@@ -451,6 +451,11 @@ func (s *Storage) GetRecord(schemaName string, key string) (interface{}, error) 
 
 // getRecordsByPartialKey returns the list of full keys that match the partial key
 func (s *Storage) getRecordsByPartialKey(schemaName string, partialKey string) []string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	dbState := s.getDBState(s.currentDB)
+	
 	if partialKey == "" {
 		return []string{}
 	}
@@ -460,7 +465,7 @@ func (s *Storage) getRecordsByPartialKey(schemaName string, partialKey string) [
 	// If the partial key is at least 5 characters, look it up directly
 	if len(partialKey) >= 5 {
 		lookupKey := partialKey[:5]
-		if schemaIndex, exists := s.partialKeys[schemaName]; exists {
+		if schemaIndex, exists := dbState.partialKeys[schemaName]; exists {
 			if keys, exists := schemaIndex[lookupKey]; exists {
 				// Filter keys that actually start with the partial key
 				for _, key := range keys {
@@ -473,7 +478,7 @@ func (s *Storage) getRecordsByPartialKey(schemaName string, partialKey string) [
 	} else {
 		// If the partial key is less than 5 characters,
 		// we need to look for any partial key entries that start with this prefix
-		if schemaIndex, exists := s.partialKeys[schemaName]; exists {
+		if schemaIndex, exists := dbState.partialKeys[schemaName]; exists {
 			for partial, keys := range schemaIndex {
 				if strings.HasPrefix(partial, partialKey) || strings.HasPrefix(partialKey, partial) {
 					// Check if any of the keys in this partial match start with the partialKey
