@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"simplebson/config"
-	"simplebson/storage"
+	"./../storage"
 )
 
 // DatabaseState holds the data for a single database
@@ -382,8 +382,13 @@ func getPartialKey(fullKey string) string {
 
 // updatePartialKeyIndex adds or removes a key from the partial key index
 func (s *Storage) updatePartialKeyIndex(schemaName, fullKey string, add bool) {
-	if _, exists := s.partialKeys[schemaName]; !exists {
-		s.partialKeys[schemaName] = make(map[string][]string)
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	dbState := s.getDBState(s.currentDB)
+	
+	if _, exists := dbState.partialKeys[schemaName]; !exists {
+		dbState.partialKeys[schemaName] = make(map[string][]string)
 	}
 
 	partialKey := getPartialKey(fullKey)
@@ -391,24 +396,24 @@ func (s *Storage) updatePartialKeyIndex(schemaName, fullKey string, add bool) {
 	if add {
 		// Add the full key to the partial key list if not already there
 		found := false
-		for _, key := range s.partialKeys[schemaName][partialKey] {
+		for _, key := range dbState.partialKeys[schemaName][partialKey] {
 			if key == fullKey {
 				found = true
 				break
 			}
 		}
 		if !found {
-			s.partialKeys[schemaName][partialKey] = append(s.partialKeys[schemaName][partialKey], fullKey)
+			dbState.partialKeys[schemaName][partialKey] = append(dbState.partialKeys[schemaName][partialKey], fullKey)
 		}
 	} else {
 		// Remove the full key from the partial key list
 		newKeys := []string{}
-		for _, key := range s.partialKeys[schemaName][partialKey] {
+		for _, key := range dbState.partialKeys[schemaName][partialKey] {
 			if key != fullKey {
 				newKeys = append(newKeys, key)
 			}
 		}
-		s.partialKeys[schemaName][partialKey] = newKeys
+		dbState.partialKeys[schemaName][partialKey] = newKeys
 	}
 }
 
@@ -549,10 +554,11 @@ func (s *Storage) WipeDatabase() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// Clear all data structures
-	s.records = make(map[string]map[string]interface{})
-	s.schemas = make(map[string]string)
-	s.partialKeys = make(map[string]map[string][]string)
+	// Clear current database state
+	dbState := s.getDBState(s.currentDB)
+	dbState.records = make(map[string]map[string]interface{})
+	dbState.schemas = make(map[string]string)
+	dbState.partialKeys = make(map[string]map[string][]string)
 
 	// Save the empty state to persistent storage
 	return s.saveToPersistent()
