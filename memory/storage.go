@@ -417,14 +417,16 @@ func (s *Storage) GetRecord(schemaName string, key string) (interface{}, error) 
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
+	dbState := s.getDBState(s.currentDB)
+
 	// Check if schema exists
-	_, exists := s.schemas[schemaName]
+	_, exists := dbState.schemas[schemaName]
 	if !exists {
 		return nil, fmt.Errorf("schema '%s' does not exist", schemaName)
 	}
 
 	// First, try exact key match
-	record, exists := s.records[schemaName][key]
+	record, exists := dbState.records[schemaName][key]
 	if exists {
 		return record, nil
 	}
@@ -434,7 +436,7 @@ func (s *Storage) GetRecord(schemaName string, key string) (interface{}, error) 
 	if len(partialMatches) == 1 {
 		// If there's exactly one match with the partial key, return it
 		fullKey := partialMatches[0]
-		record, exists := s.records[schemaName][fullKey]
+		record, exists := dbState.records[schemaName][fullKey]
 		if exists {
 			return record, nil
 		}
