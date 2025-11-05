@@ -209,8 +209,9 @@ func (s *Storage) ListSchemas() []string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	schemaNames := make([]string, 0, len(s.schemas))
-	for name := range s.schemas {
+	dbState := s.getDBState(s.currentDB)
+	schemaNames := make([]string, 0, len(dbState.schemas))
+	for name := range dbState.schemas {
 		schemaNames = append(schemaNames, name)
 	}
 
@@ -222,7 +223,9 @@ func (s *Storage) AddRecord(schemaName string, recordData string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if _, exists := s.schemas[schemaName]; !exists {
+	dbState := s.getDBState(s.currentDB)
+
+	if _, exists := dbState.schemas[schemaName]; !exists {
 		return fmt.Errorf("schema '%s' does not exist", schemaName)
 	}
 
@@ -264,11 +267,11 @@ func (s *Storage) AddRecord(schemaName string, recordData string) error {
 		return fmt.Errorf("could not extract a valid key from record data: %s", string(updatedRecordData))
 	}
 
-	if _, exists := s.records[schemaName]; !exists {
-		s.records[schemaName] = make(map[string]interface{})
+	if _, exists := dbState.records[schemaName]; !exists {
+		dbState.records[schemaName] = make(map[string]interface{})
 	}
 
-	s.records[schemaName][key] = string(updatedRecordData)
+	dbState.records[schemaName][key] = string(updatedRecordData)
 	s.updatePartialKeyIndex(schemaName, key, true)
 
 	return s.saveToPersistent()
@@ -276,7 +279,11 @@ func (s *Storage) AddRecord(schemaName string, recordData string) error {
 
 // validateRecordAgainstSchema checks if record matches schema types
 func (s *Storage) validateRecordAgainstSchema(schemaName string, recordData string) error {
-	schemaDef, exists := s.schemas[schemaName]
+	s.mutex.RLock()
+	dbState := s.getDBState(s.currentDB)
+	schemaDef, exists := dbState.schemas[schemaName]
+	s.mutex.RUnlock()
+	
 	if !exists {
 		return fmt.Errorf("schema '%s' does not exist", schemaName)
 	}
