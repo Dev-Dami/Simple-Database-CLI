@@ -120,6 +120,15 @@ func main() {
 			fmt.Printf("Schema '%s' created successfully\n", schema)
 		}
 
+	case "use":
+		if len(parsedArgs) < 1 {
+			fmt.Println("Usage: simplebson use <database_name>")
+			os.Exit(1)
+		}
+		dbName := parsedArgs[0]
+		storage.UseDB(dbName)
+		fmt.Printf("Switched to database '%s'\n", dbName)
+
 	case "wipe", "drop":
 		err := storage.WipeDatabase()
 		if err != nil {
