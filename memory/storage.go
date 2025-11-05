@@ -14,7 +14,8 @@ import (
 // Storage manages records in memory with BSON persistence
 type Storage struct {
 	config      *config.Config
-	store       *storage.Store
+	stores      map[string]*storage.Store         // Maps database names to stores
+	currentDB   string                            // The currently selected database
 	records     map[string]map[string]interface{} // Maps schemas to records
 	schemas     map[string]string                 // Schema definitions
 	partialKeys map[string]map[string][]string    // For partial key lookups
@@ -25,7 +26,8 @@ type Storage struct {
 func NewStorage(config *config.Config) *Storage {
 	s := &Storage{
 		config:      config,
-		store:       storage.NewStore(config.StoragePath),
+		stores:      make(map[string]*storage.Store),
+		currentDB:   "default", // Default database
 		records:     make(map[string]map[string]interface{}),
 		schemas:     make(map[string]string),
 		partialKeys: make(map[string]map[string][]string),
@@ -52,21 +54,21 @@ func (s *Storage) loadFromPersistent() {
 	} else {
 		s.schemas = schemas
 	}
-	
+
 	s.rebuildPartialKeyIndex()
 }
 
 // rebuildPartialKeyIndex builds partial key lookup table
 func (s *Storage) rebuildPartialKeyIndex() {
 	s.partialKeys = make(map[string]map[string][]string)
-	
+
 	for schemaName, schemaRecords := range s.records {
 		if schemaName == "__schemas__" {
 			continue
 		}
-		
+
 		s.partialKeys[schemaName] = make(map[string][]string)
-		
+
 		for fullKey := range schemaRecords {
 			partialKey := getPartialKey(fullKey)
 			if _, exists := s.partialKeys[schemaName][partialKey]; !exists {
@@ -82,11 +84,11 @@ func (s *Storage) saveToPersistent() error {
 	if err := s.store.SaveRecords(s.records); err != nil {
 		return err
 	}
-	
+
 	if err := s.store.SaveSchemas(s.schemas); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -172,7 +174,7 @@ func (s *Storage) AddRecord(schemaName string, recordData string) error {
 			}
 		}
 	}
-	
+
 	if key == "" {
 		return fmt.Errorf("could not extract a valid key from record data: %s", string(updatedRecordData))
 	}
@@ -200,12 +202,12 @@ func (s *Storage) validateRecordAgainstSchema(schemaName string, recordData stri
 	}
 
 	fields := parseSchemaFields(schemaDef)
-	
+
 	for field, fieldType := range fields {
 		if _, exists := record[field]; !exists {
 			continue
 		}
-		
+
 		if err := validateFieldType(record[field], fieldType); err != nil {
 			return fmt.Errorf("field '%s' type validation failed: %v", field, err)
 		}
@@ -218,13 +220,13 @@ func (s *Storage) validateRecordAgainstSchema(schemaName string, recordData stri
 func parseSchemaFields(schemaDef string) map[string]string {
 	fields := make(map[string]string)
 	parts := strings.Split(schemaDef, " ")
-	
+
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
 		}
-		
+
 		// Split by colon to separate field name and type (e.g., "name:string")
 		pair := strings.Split(part, ":")
 		if len(pair) == 2 {
@@ -233,7 +235,7 @@ func parseSchemaFields(schemaDef string) map[string]string {
 			fields[fieldName] = fieldType
 		}
 	}
-	
+
 	return fields
 }
 
@@ -274,7 +276,7 @@ func validateFieldType(value interface{}, expectedType string) error {
 		// For unknown types, accept any value for MVP
 		return nil
 	}
-	
+
 	return nil
 }
 
@@ -291,9 +293,9 @@ func (s *Storage) updatePartialKeyIndex(schemaName, fullKey string, add bool) {
 	if _, exists := s.partialKeys[schemaName]; !exists {
 		s.partialKeys[schemaName] = make(map[string][]string)
 	}
-	
+
 	partialKey := getPartialKey(fullKey)
-	
+
 	if add {
 		// Add the full key to the partial key list if not already there
 		found := false
@@ -358,9 +360,9 @@ func (s *Storage) getRecordsByPartialKey(schemaName string, partialKey string) [
 	if partialKey == "" {
 		return []string{}
 	}
-	
+
 	var matches []string
-	
+
 	// If the partial key is at least 5 characters, look it up directly
 	if len(partialKey) >= 5 {
 		lookupKey := partialKey[:5]
@@ -390,7 +392,7 @@ func (s *Storage) getRecordsByPartialKey(schemaName string, partialKey string) [
 			}
 		}
 	}
-	
+
 	return matches
 }
 
@@ -456,7 +458,7 @@ func (s *Storage) WipeDatabase() error {
 // extractKeyFromRecord extracts key from record data by looking for common key fields
 func extractKeyFromRecord(recordData string) string {
 	var record map[string]interface{}
-	
+
 	// Try to parse the record data as JSON
 	if err := json.Unmarshal([]byte(recordData), &record); err != nil {
 		// If JSON parsing fails, return a default key
@@ -465,7 +467,7 @@ func extractKeyFromRecord(recordData string) string {
 
 	// Look for common key fields in order of preference
 	keyFields := []string{"id", "name", "key"}
-	
+
 	for _, field := range keyFields {
 		if value, exists := record[field]; exists {
 			if strValue, ok := value.(string); ok {
@@ -475,7 +477,7 @@ func extractKeyFromRecord(recordData string) string {
 			return fmt.Sprintf("%v", value)
 		}
 	}
-	
+
 	// If no common key fields found, try to use the first field as key
 	for key, value := range record {
 		if strValue, ok := value.(string); ok {
@@ -484,7 +486,7 @@ func extractKeyFromRecord(recordData string) string {
 		// If the value is not a string, return the key name as the identifier
 		return key
 	}
-	
+
 	// Fallback to the original record data
 	return recordData
 }
