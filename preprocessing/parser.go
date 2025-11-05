@@ -39,6 +39,17 @@ func ParseCommand(command string, args []string) ([]string, error) {
 		// If no args provided, this is to list all schemas
 		return args, nil
 
+	case "use":
+		// Format: use <database_name>
+		if len(args) < 1 {
+			return nil, fmt.Errorf("not enough arguments for 'use' command")
+		}
+		return args, nil
+
+	case "dbs":
+		// Format: dbs (no args needed)
+		return args, nil
+
 	case "wipe", "drop":
 		// Format: wipe/drop (no args needed)
 		return args, nil
