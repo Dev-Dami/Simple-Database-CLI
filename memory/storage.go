@@ -119,6 +119,10 @@ func (s *Storage) UseDB(dbName string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	// Save current database data before switching
+	s.saveToPersistent()
+
+	// Switch to new database
 	s.currentDB = dbName
 	s.loadFromPersistent()
 }
