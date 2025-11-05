@@ -95,11 +95,12 @@ func (s *Storage) rebuildPartialKeyIndex() {
 
 // saveToPersistent writes data to the BSON file
 func (s *Storage) saveToPersistent() error {
-	if err := s.store.SaveRecords(s.records); err != nil {
+	store := s.getOrCreateStore(s.currentDB)
+	if err := store.SaveRecords(s.records); err != nil {
 		return err
 	}
 
-	if err := s.store.SaveSchemas(s.schemas); err != nil {
+	if err := store.SaveSchemas(s.schemas); err != nil {
 		return err
 	}
 
